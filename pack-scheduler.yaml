@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pack-scheduler
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pack-scheduler-as-kube-scheduler
+  namespace: kube-system
+subjects:
+- kind: ServiceAccount
+  name: pack-scheduler
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: system:kube-scheduler
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pack-scheduler-as-volume-scheduler
+  namespace: kube-system
+subjects:
+- kind: ServiceAccount
+  name: pack-scheduler
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: system:volume-scheduler
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pack-scheduler-as-volume-scheduler
+  namespace: kube-system
+subjects:
+- kind: ServiceAccount
+  name: pack-scheduler
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: system:volume-scheduler
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pack-scheduler-config
+  namespace: kube-system
+data:
+  scheduler-config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1
+    kind: KubeSchedulerConfiguration
+    leaderElection:
+      leaderElect: false
+    profiles:
+    - schedulerName: pack-scheduler
+      plugins:
+      pluginConfig:
+        - name: NodeResourcesFit
+          args:
+            scoringStrategy:
+              type: MostAllocated
+              resources:
+                - name: cpu
+                  weight: 1
+                - name: memory
+                  weight: 1
+                - name: pods
+                  weight: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pack-scheduler
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pack-scheduler
+  template:
+    metadata:
+      labels:
+        app: pack-scheduler
+    spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: pack-scheduler
+      containers:
+      - name: scheduler
+        image: ghcr.io/markjgardner/kube-scheduler:latest
+        imagePullPolicy: Always
+        command:
+        - /bin/kube-scheduler
+        - --config=/etc/kubernetes/scheduler-config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/kubernetes
+      volumes:
+      - name: config
+        configMap:
+          name: pack-scheduler-config

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: scheduler-test
+  template:
+    metadata:
+      labels:
+        app: scheduler-test
+    spec:
+      schedulerName: pack-scheduler
+      containers:
+      - name: nginx
+        image: nginx:latest
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      nodeSelector:
+        kubernetes.azure.com/agentpool: linux1
